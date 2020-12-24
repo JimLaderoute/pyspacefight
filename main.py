@@ -1,7 +1,7 @@
-import pygame,sys # importing modules
-import random
+import pygame,sys,math,random # importing modules
 from pygame.locals import *  # pygame.locals.QUIT --> QUIT
 vec = pygame.math.Vector2
+
 
 TITLE = "Space Fight"
 FONTNAME = "comicsansms"
@@ -23,6 +23,16 @@ ACCEL_AMOUNT = 0.2
 # COLORS
 BACKGROUND = (217, 217, 217)
 
+class Settings():
+    def __init__(self):
+        self.aimodel = 0
+    def setAiModelNumber(self,modelnum):
+        self.aimodel = modelnum
+    def getAiModelName(self):
+        return "ai"+str(self.aimodel)
+
+setting = Settings()
+
 class Robot():
     def __init__(self, pos, color, aimodel):
         self.center = vec( pos )
@@ -33,8 +43,53 @@ class Robot():
         self.waypoint = 0
         self.aimodel = aimodel
         self.timepass=0
+        self.score = 0      # how many targets it touched
 
-    def ai1(self,points):
+    def ai3(self, points):
+        # find which target we are heading for
+        target = points[self.waypoint]
+        # find the vector that the target is moving towards
+        x0 = target.center.x
+        y0 = target.center.y
+        x1 = target.center.x + target.velocity.x
+        y1 = target.center.y + target.velocity.y
+        # now determine our robot's current vector
+        rx0 = self.center.x
+        ry0 = self.center.y
+        rx1 = rx0 + self.velocity.x
+        ry1 = ry0 + self.velocity.y
+        # We want to adjust our angle so that it points to the target's location
+        # we are only allowed to adjust our thrust boosters, we can't just
+        # change our x,y velocities. And we have a max thrust and max velocity for
+        # our object. We can't break the rules.
+        dx = rx1 - x1
+        dy = ry1 - y1
+        distToTarget = math.sqrt( dx*dx + dy*dy)
+        angleToTarget = math.atan2( dy, dx)
+        lastd = WIDTH + HEIGHT
+        for a in range(1,10):
+            ax = -math.cos(angleToTarget) * ACCEL_AMOUNT * (a / 10.0)
+            ay = -math.sin(angleToTarget) * ACCEL_AMOUNT * (a / 10.0)
+            vx = self.velocity.x + ax
+            vy = self.velocity.y + ay
+            rx1 = self.center.x + vx
+            ry1 = self.center.y + vy 
+            dx = rx1 - x1
+            dy = ry1 - y1 
+            d = math.sqrt( dx*dx + dy*dy)
+            if d < lastd:
+                lastd = d
+                last_ax = ax
+                last_ay = ay
+
+        self.accel.x = last_ax
+        self.accel.y = last_ay
+
+
+    def ai2(self, points):
+        self.ai1(points,True) # look ahead
+
+    def ai1(self, points, lookAhead=False):
         target = points[self.waypoint]
         #print("in ai1 now\n")
         # try different accelerations from 0.01 to ACCEL_AMOUNT; after each
@@ -43,7 +98,7 @@ class Robot():
         best_accel_x = ACCEL_AMOUNT
         best_accel_y = ACCEL_AMOUNT
         accels = [ACCEL_AMOUNT/4.0, ACCEL_AMOUNT/2.0, ACCEL_AMOUNT, -ACCEL_AMOUNT, -ACCEL_AMOUNT/2.0, -ACCEL_AMOUNT/4.0]
-        test_bot = Robot(self.center, self.color, self.aimodel)
+        test_bot = Robot(self.center, self.color, setting.getAiModelName() )
         for ay in accels:
             for ax in accels:
                 test_bot.center.x = self.center.x
@@ -58,7 +113,18 @@ class Robot():
                 test_bot.center.x += test_bot.velocity.x * 10
                 test_bot.center.y += test_bot.velocity.y * 10
                 #--------------------------------------------
-                d = test_bot.center.distance_to(points[test_bot.waypoint].center)
+                if lookAhead:
+                    x = points[test_bot.waypoint].center.x
+                    y = points[test_bot.waypoint].center.y 
+                    thedist = min(200,int(test_bot.center.distance_to(points[test_bot.waypoint].center)))//3
+                    print("thedist num={}\n".format(thedist))
+                    for i in range(thedist):
+                        points[test_bot.waypoint].update()
+                    d = test_bot.center.distance_to(points[test_bot.waypoint].center)
+                    points[test_bot.waypoint].center.x = x
+                    points[test_bot.waypoint].center.y = y
+                else:
+                    d = test_bot.center.distance_to(points[test_bot.waypoint].center)
                 if d < best_d:
                     best_d = d
                     best_accel_x = ax
@@ -96,11 +162,19 @@ class Robot():
             if distance < MIN_DISTANCE:
                 self.waypoint = (self.waypoint + 1) % len(points)
                 self.timepass = 0
+                if self.score==0 or (self.score > 0 and len(points) > 1):
+                    self.score += 1
 
         if self.aimodel =="ai0":
             self.ai0(points, ACCEL_AMOUNT )
         elif self.aimodel =="ai1":
             self.ai1(points)
+        elif self.aimodel =="ai2":
+            self.ai2(points)
+        elif self.aimodel =="ai3":
+            self.ai3(points)
+
+
 
         self.update_speed()
         self.center.x += self.velocity.x
@@ -112,6 +186,16 @@ class Robot():
         pygame.draw.line(surface, self.color, pos, (pos[0]-int(300*self.accel.x), pos[1]))
         pygame.draw.line(surface, self.color, pos, (pos[0], pos[1]-int(300*self.accel.y)))
         pygame.draw.circle(surface, self.color, pos, self.radius)
+        txtsurf = font.render(str(self.score), True, (0,0,0))
+        txtrect = txtsurf.get_rect()
+        txtrect.bottomleft= pos
+        screen.blit(txtsurf,txtrect)
+        txtsurf = font.render(self.aimodel, True, (0,0,0))
+        txtrect = txtsurf.get_rect()
+        txtrect.topright= pos
+        screen.blit(txtsurf,txtrect)
+
+
 
 
 class Point():
@@ -137,12 +221,12 @@ class Point():
     def render(self,surface):
         pos = ( int(self.center.x), int(self.center.y) )
 
-        if self == points[robots[0].waypoint]:
-            pygame.draw.circle(surface, robots[0].color, pos, MIN_DISTANCE)
-        elif self == points[robots[1].waypoint]:
-            pygame.draw.circle(surface, robots[1].color, pos, MIN_DISTANCE)
-        else:
-            pygame.draw.circle(surface, (55,55,55), pos, MIN_DISTANCE)
+        pygame.draw.circle(surface, (55,55,55), pos, MIN_DISTANCE)
+        if len(robots):
+            for r in robots:
+                if self == points[r.waypoint]:
+                    pygame.draw.circle(surface, r.color, pos, MIN_DISTANCE)
+
         pygame.draw.circle(surface, self.color, pos, self.radius)
         txtsurf = font.render(str(self.count), True, (0,0,0))
         txtrect = txtsurf.get_rect()
@@ -156,9 +240,20 @@ clock  = pygame.time.Clock() # creating the game clock
 font = pygame.font.SysFont(FONTNAME, FONTSIZE)
 
 points = [] 
-robots = [ Robot((WIDTH/2,HEIGHT/2),(255,255,255), "ai1") , Robot((200, 100), (255,255,0), "ai1") ]
+robots = []
 
+text = []
 text_surface = font.render("Click Left Mouse Button to create WayPoints", True, (255,0,0))
+text.append(text_surface)
+text_surface = font.render("Click Right Mouse Button to create a Robot", True, (255,0,0))
+text.append(text_surface)
+text_surface = font.render("Press 0 to set AI model to AI0.", True, (255,0,0))
+text.append(text_surface)
+text_surface = font.render("Press 1 to set AI model to AI1.", True, (255,0,0))
+text.append(text_surface)
+text_surface = font.render("Press 2 to set AI model to AI2.", True, (255,0,0))
+text.append(text_surface)
+
 any_mouse_clicked = False
 pointCounter=0
 
@@ -176,6 +271,15 @@ while True: # Game Loop
                screen.fill(BACKGROUND)
                for r in robots:
                    r.waypoint = 0
+            elif event.key == K_0:
+                setting.setAiModelNumber(0)
+            elif event.key == K_1:
+                setting.setAiModelNumber(1)
+            elif event.key == K_2:
+                setting.setAiModelNumber(2)
+            elif event.key == K_3:
+                setting.setAiModelNumber(3)
+
 
         # Look for MOUSE CLICK events
         if event.type == MOUSEBUTTONUP:
@@ -184,6 +288,11 @@ while True: # Game Loop
                 pos = pygame.mouse.get_pos()
                 pointCounter += 1
                 points.append( Point(pos, (255,0,0),pointCounter))
+            elif event.button == RIGHT:
+                any_moude_clicked = True
+                pos = pygame.mouse.get_pos()
+                robots.append( Robot(pos, (random.randint(0,255), random.randint(0,255),random.randint(0,255)), 
+                    setting.getAiModelName()) ) 
 
     screen.fill(BACKGROUND) # background color
 
@@ -199,9 +308,12 @@ while True: # Game Loop
         r.render(screen)
 
     if not any_mouse_clicked :
-        text_rect = text_surface.get_rect()
-        text_rect.topleft = (10,10)
-        screen.blit(text_surface, text_rect)
+        ypos = 10
+        for t in text:
+            text_rect = t.get_rect()
+            text_rect.topleft = (10,ypos)
+            screen.blit(t, text_rect)
+            ypos += 25
     
     pygame.display.update() # rendering the frame
     clock.tick(FPS) # limiting the frames per second
