@@ -26,10 +26,14 @@ BACKGROUND = (217, 217, 217)
 class Settings():
     def __init__(self):
         self.aimodel = 0
+        self.randomwaypoints = False
+        random.seed(3)
     def setAiModelNumber(self,modelnum):
         self.aimodel = modelnum
     def getAiModelName(self):
         return "ai"+str(self.aimodel)
+    def toggleRandom(self):
+        self.randomwaypoints = not self.randomwaypoints
 
 setting = Settings()
 
@@ -44,6 +48,94 @@ class Robot():
         self.aimodel = aimodel
         self.timepass=0
         self.score = 0      # how many targets it touched
+
+    def ai4(self, points):
+        # Created by Sam
+
+        # Step waypoint into the future
+        target = points[self.waypoint]
+        distance = math.sqrt(math.pow(self.center.x - target.center.x, 2) + math.pow(self.center.y - target.center.y, 2))
+        normDist = (distance/(WIDTH))#*math.sqrt(2)/2))
+
+        # Depending on distance determine how far into the future to look
+        future = normDist * FPS*2  # every FPS(60) = 1 second
+
+        targX = target.center.x + target.velocity.x * future
+        targY = target.center.y + target.velocity.y * future
+
+        # step robot into the future?
+        vRobotX = self.center.x
+        vRobotY = self.center.y
+        vRobotVX = self.velocity.x
+        vRobotVY = self.velocity.y
+
+        # Find angle of self to future waypoint
+        dy = vRobotY - targY
+        dx = vRobotX - targX
+        angle = math.atan2(dy, dx)
+
+        # Find vector to add to current vel that gives desired angle
+        desV = vec()
+        desV.x = vRobotVX - math.cos(angle)*MAX_VEL
+        desV.y = vRobotVY - math.sin(angle)*MAX_VEL
+
+        # Find acc that gives vel of that angle
+        accX =  desV.x*normDist - vRobotVX
+        accY =  desV.y*normDist - vRobotVY
+
+
+        # set that acc
+        if accX > ACCEL_AMOUNT:
+            accX = ACCEL_AMOUNT
+        if accX < -ACCEL_AMOUNT:
+            accX = -ACCEL_AMOUNT
+        if accY > ACCEL_AMOUNT:
+            accY = ACCEL_AMOUNT
+        if accY < -ACCEL_AMOUNT:
+            accY = -ACCEL_AMOUNT
+
+        # print (distance)
+        if (normDist > 0.5):    # 260
+            self.accel.x = accX
+            self.accel.y = accY
+        else:
+            testBot = Robot(self.center, self.color, self.aimodel)
+            best_d = WIDTH*3
+            new_acc_x = ACCEL_AMOUNT
+            new_acc_y = ACCEL_AMOUNT
+            for i in range(-20,20):
+                for j in range(-20,20):
+                    # RESET VALUES
+                    testBot.center.x = self.center.x
+                    testBot.center.y = self.center.y
+                    testBot.velocity.x = self.velocity.x
+                    testBot.velocity.y = self.velocity.y
+                    testBot.waypoint = self.waypoint
+
+                    # SET TEST ACC
+                    testBot.accel.x = i/100.0
+                    testBot.accel.y = j/100.0
+
+                    # UPDATE TEST BOT VEL AND LOCATION
+                    testBot.update_speed()
+                    testBot.center.x = testBot.center.x + testBot.velocity.x*future
+                    testBot.center.y = testBot.center.y + testBot.velocity.y*future
+                    # UPDATE TARGET LOCATION
+                    newTargetX = points[testBot.waypoint].center.x + points[testBot.waypoint].velocity.x*future
+                    newTargetY = points[testBot.waypoint].center.y + points[testBot.waypoint].velocity.y*future
+
+                    # CHECK DISTANCE
+                    tar = vec()
+                    tar.x = newTargetX
+                    tar.y = newTargetY
+                    d = testBot.center.distance_to(tar)
+                    if d < best_d:
+                        best_d = d
+                        new_acc_x = i/100.0
+                        new_acc_y = j/100.0
+            self.accel.x = new_acc_x
+            self.accel.y = new_acc_y
+
 
     def ai3(self, points):
         # find which target we are heading for
@@ -76,7 +168,7 @@ class Robot():
             ry1 = self.center.y + vy 
             dx = rx1 - x1
             dy = ry1 - y1 
-            d = math.sqrt( dx*dx + dy*dy)
+            d = math.sqrt( dx*dx + dy*dy) - 30
             if d < lastd:
                 lastd = d
                 last_ax = ax
@@ -173,6 +265,8 @@ class Robot():
             self.ai2(points)
         elif self.aimodel =="ai3":
             self.ai3(points)
+        elif self.aimodel == "ai4":
+            self.ai4(points)
 
 
 
@@ -204,7 +298,10 @@ class Point():
         self.color = color
         self.count = number
         self.radius = WAYPOINT_RADIUS
-        self.velocity = vec( (random.randint(0,20)/10.0,random.randint(0,20)/10.0) )
+        if setting.randomwaypoints:
+            self.velocity = vec((random.randint(0,20)/10.0,random.randint(0,20)/10.0) )
+        else:
+            self.velocity = vec((0, 0))
 
     def update(self):
         self.center.x += self.velocity.x
@@ -247,11 +344,17 @@ text_surface = font.render("Click Left Mouse Button to create WayPoints", True, 
 text.append(text_surface)
 text_surface = font.render("Click Right Mouse Button to create a Robot", True, (255,0,0))
 text.append(text_surface)
+text_surface = font.render("Press R to toggle random vel of waypoints.", True, (255,0,0))
+text.append(text_surface)
 text_surface = font.render("Press 0 to set AI model to AI0.", True, (255,0,0))
 text.append(text_surface)
 text_surface = font.render("Press 1 to set AI model to AI1.", True, (255,0,0))
 text.append(text_surface)
 text_surface = font.render("Press 2 to set AI model to AI2.", True, (255,0,0))
+text.append(text_surface)
+text_surface = font.render("Press 3 to set AI model to AI3.", True, (255,0,0))
+text.append(text_surface)
+text_surface = font.render("Press 4 to set AI model to AI4.", True, (255,0,0))
 text.append(text_surface)
 
 any_mouse_clicked = False
@@ -271,6 +374,8 @@ while True: # Game Loop
                screen.fill(BACKGROUND)
                for r in robots:
                    r.waypoint = 0
+            elif event.key == K_r:
+                setting.toggleRandom()
             elif event.key == K_0:
                 setting.setAiModelNumber(0)
             elif event.key == K_1:
@@ -279,6 +384,8 @@ while True: # Game Loop
                 setting.setAiModelNumber(2)
             elif event.key == K_3:
                 setting.setAiModelNumber(3)
+            elif event.key == K_4:
+                setting.setAiModelNumber(4)
 
 
         # Look for MOUSE CLICK events
