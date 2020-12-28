@@ -138,45 +138,33 @@ class Robot():
 
 
     def ai3(self, points):
-        # find which target we are heading for
         target = points[self.waypoint]
-        # find the vector that the target is moving towards
-        x0 = target.center.x
-        y0 = target.center.y
-        x1 = target.center.x + target.velocity.x
-        y1 = target.center.y + target.velocity.y
-        # now determine our robot's current vector
-        rx0 = self.center.x
-        ry0 = self.center.y
-        rx1 = rx0 + self.velocity.x
-        ry1 = ry0 + self.velocity.y
-        # We want to adjust our angle so that it points to the target's location
-        # we are only allowed to adjust our thrust boosters, we can't just
-        # change our x,y velocities. And we have a max thrust and max velocity for
-        # our object. We can't break the rules.
-        dx = rx1 - x1
-        dy = ry1 - y1
-        distToTarget = math.sqrt( dx*dx + dy*dy)
-        angleToTarget = math.atan2( dy, dx)
-        lastd = WIDTH + HEIGHT
-        for a in range(1,10):
-            ax = -math.cos(angleToTarget) * ACCEL_AMOUNT * (a / 10.0)
-            ay = -math.sin(angleToTarget) * ACCEL_AMOUNT * (a / 10.0)
-            vx = self.velocity.x + ax
-            vy = self.velocity.y + ay
-            rx1 = self.center.x + vx
-            ry1 = self.center.y + vy 
-            dx = rx1 - x1
-            dy = ry1 - y1 
-            d = math.sqrt( dx*dx + dy*dy) - 30
-            if d < lastd:
-                lastd = d
-                last_ax = ax
-                last_ay = ay
-
-        self.accel.x = last_ax
-        self.accel.y = last_ay
-
+        best_d = WIDTH * 2
+        best_accel_x = ACCEL_AMOUNT
+        best_accel_y = ACCEL_AMOUNT
+        accels = [ACCEL_AMOUNT/8.0, ACCEL_AMOUNT/4.0, ACCEL_AMOUNT/2.0, ACCEL_AMOUNT, -ACCEL_AMOUNT, -ACCEL_AMOUNT/2.0, -ACCEL_AMOUNT/4.0, -ACCEL_AMOUNT/8.0]
+        test_bot = Robot(self.center, self.color, setting.getAiModelName() )
+        for ay in accels:
+            for ax in accels:
+                test_bot.center.x = self.center.x
+                test_bot.center.y = self.center.y
+                test_bot.velocity.x = self.velocity.x
+                test_bot.velocity.y = self.velocity.y
+                test_bot.waypoint = self.waypoint
+                test_bot.accel.x = ax
+                test_bot.accel.y = ay 
+                #--------------------------------------------
+                test_bot.update_speed()
+                test_bot.center.x += test_bot.velocity.x * 20
+                test_bot.center.y += test_bot.velocity.y * 20
+                #--------------------------------------------
+                d = test_bot.center.distance_to(points[test_bot.waypoint].center)
+                if d < best_d:
+                    best_d = d
+                    best_accel_x = ax
+                    best_accel_y = ay
+        self.accel.x = best_accel_x
+        self.accel.y = best_accel_y
 
     def ai2(self, points):
         self.ai1(points,True) # look ahead
@@ -358,6 +346,7 @@ text_surface = font.render("Press 4 to set AI model to AI4.", True, (255,0,0))
 text.append(text_surface)
 
 any_mouse_clicked = False
+show_help = True
 pointCounter=0
 
 while True: # Game Loop
@@ -374,6 +363,8 @@ while True: # Game Loop
                screen.fill(BACKGROUND)
                for r in robots:
                    r.waypoint = 0
+            elif event.key == K_h:
+                show_help = not show_help
             elif event.key == K_r:
                 setting.toggleRandom()
             elif event.key == K_0:
@@ -391,12 +382,13 @@ while True: # Game Loop
         # Look for MOUSE CLICK events
         if event.type == MOUSEBUTTONUP:
             if event.button == LEFT:
+                if not any_mouse_clicked:
+                    show_help = False
                 any_mouse_clicked = True
                 pos = pygame.mouse.get_pos()
                 pointCounter += 1
                 points.append( Point(pos, (255,0,0),pointCounter))
             elif event.button == RIGHT:
-                any_moude_clicked = True
                 pos = pygame.mouse.get_pos()
                 robots.append( Robot(pos, (random.randint(0,255), random.randint(0,255),random.randint(0,255)), 
                     setting.getAiModelName()) ) 
@@ -414,7 +406,7 @@ while True: # Game Loop
     for r in robots:
         r.render(screen)
 
-    if not any_mouse_clicked :
+    if show_help :
         ypos = 10
         for t in text:
             text_rect = t.get_rect()
