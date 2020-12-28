@@ -8,7 +8,7 @@ o have a player robot, player controls the robot
 o add fuel -- using thrust expends your limmited fuel supply1
 
 o AI2 (3rd one); look ahead of target, aim for where it will be in N seconds.
-o AI3 (4th one); 
+o AI3 (4th one); better than ai2 for stationary waypoints but not for moving waypoints 
 o AI4 (5th one) by Sam
 
 

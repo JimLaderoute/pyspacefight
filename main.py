@@ -19,6 +19,7 @@ MIN_DISTANCE = 30
 ROBOT_RADIUS = 10
 WAYPOINT_RADIUS = 15
 ACCEL_AMOUNT = 0.2
+FUEL_UNITS_DEFAULT = 1000.0
 
 # COLORS
 BACKGROUND = (217, 217, 217)
@@ -48,6 +49,7 @@ class Robot():
         self.aimodel = aimodel
         self.timepass=0
         self.score = 0      # how many targets it touched
+        self.fuel = FUEL_UNITS_DEFAULT
 
     def ai4(self, points):
         # Created by Sam
@@ -140,6 +142,7 @@ class Robot():
     def ai3(self, points):
         target = points[self.waypoint]
         best_d = WIDTH * 2
+        factor = 20.0
         best_accel_x = ACCEL_AMOUNT
         best_accel_y = ACCEL_AMOUNT
         accels = [ACCEL_AMOUNT/8.0, ACCEL_AMOUNT/4.0, ACCEL_AMOUNT/2.0, ACCEL_AMOUNT, -ACCEL_AMOUNT, -ACCEL_AMOUNT/2.0, -ACCEL_AMOUNT/4.0, -ACCEL_AMOUNT/8.0]
@@ -155,14 +158,18 @@ class Robot():
                 test_bot.accel.y = ay 
                 #--------------------------------------------
                 test_bot.update_speed()
-                test_bot.center.x += test_bot.velocity.x * 20
-                test_bot.center.y += test_bot.velocity.y * 20
+                test_bot.center.x += test_bot.velocity.x * factor
+                test_bot.center.y += test_bot.velocity.y * factor 
                 #--------------------------------------------
-                d = test_bot.center.distance_to(points[test_bot.waypoint].center)
+                d = test_bot.center.distance_to(target.center)
                 if d < best_d:
                     best_d = d
                     best_accel_x = ax
                     best_accel_y = ay
+                    if d < 200:
+                        factor = 15.0
+                    if d < 100:
+                        factor = 10.0
         self.accel.x = best_accel_x
         self.accel.y = best_accel_y
 
@@ -197,7 +204,6 @@ class Robot():
                     x = points[test_bot.waypoint].center.x
                     y = points[test_bot.waypoint].center.y 
                     thedist = min(200,int(test_bot.center.distance_to(points[test_bot.waypoint].center)))//3
-                    print("thedist num={}\n".format(thedist))
                     for i in range(thedist):
                         points[test_bot.waypoint].update()
                     d = test_bot.center.distance_to(points[test_bot.waypoint].center)
@@ -256,7 +262,13 @@ class Robot():
         elif self.aimodel == "ai4":
             self.ai4(points)
 
-
+        if self.fuel <= 0:
+            self.accel.x = 0
+            self.accel.y = 0
+            self.fuel = 0
+        else:
+            f = math.sqrt( self.accel.x * self.accel.x + self.accel.y * self.accel.y )
+            self.fuel -= f
 
         self.update_speed()
         self.center.x += self.velocity.x
@@ -277,7 +289,8 @@ class Robot():
         txtrect.topright= pos
         screen.blit(txtsurf,txtrect)
 
-
+        pygame.draw.rect(surface, (255,0,0), pygame.Rect(int(pos[0] - 20), int(pos[1] + 20), 100, 5))
+        pygame.draw.line(surface, (0,255,0), (int(pos[0] - 20), int(pos[1] + 22)), (int(pos[0] - 20) + (100*self.fuel//FUEL_UNITS_DEFAULT), int(pos[1] + 22)))
 
 
 class Point():
@@ -287,7 +300,7 @@ class Point():
         self.count = number
         self.radius = WAYPOINT_RADIUS
         if setting.randomwaypoints:
-            self.velocity = vec((random.randint(0,20)/10.0,random.randint(0,20)/10.0) )
+            self.velocity = vec((random.randint(-20,20)/10.0,random.randint(-20,20)/10.0) )
         else:
             self.velocity = vec((0, 0))
 
@@ -345,75 +358,86 @@ text.append(text_surface)
 text_surface = font.render("Press 4 to set AI model to AI4.", True, (255,0,0))
 text.append(text_surface)
 
-any_mouse_clicked = False
-show_help = True
-pointCounter=0
+def main():
+    global points
 
-while True: # Game Loop
-    for event in pygame.event.get(): # checking for user input
-        if event.type == QUIT: # input to close the game
-            pygame.quit()
-            sys.exit()
-        # look for keyboard events
-        if event.type == KEYUP:
-            if event.key == K_KP_ENTER or event.key == K_RETURN:
-               # clear all waypoints
-               points = []
-               pointCounter=0
-               screen.fill(BACKGROUND)
-               for r in robots:
-                   r.waypoint = 0
-            elif event.key == K_h:
-                show_help = not show_help
-            elif event.key == K_r:
-                setting.toggleRandom()
-            elif event.key == K_0:
-                setting.setAiModelNumber(0)
-            elif event.key == K_1:
-                setting.setAiModelNumber(1)
-            elif event.key == K_2:
-                setting.setAiModelNumber(2)
-            elif event.key == K_3:
-                setting.setAiModelNumber(3)
-            elif event.key == K_4:
-                setting.setAiModelNumber(4)
+    any_mouse_clicked = False
+    show_help = True
+    pointCounter=0
+
+    while True: # Game Loop
+        for event in pygame.event.get(): # checking for user input
+            if event.type == QUIT: # input to close the game
+                show_stats()
+                pygame.quit()
+                sys.exit()
+            # look for keyboard events
+            if event.type == KEYUP:
+                if event.key == K_KP_ENTER or event.key == K_RETURN:
+                   # clear all waypoints
+                   points = []
+                   pointCounter=0
+                   screen.fill(BACKGROUND)
+                   for r in robots:
+                       r.waypoint = 0
+                elif event.key == K_h:
+                    show_help = not show_help
+                elif event.key == K_r:
+                    setting.toggleRandom()
+                elif event.key == K_0:
+                    setting.setAiModelNumber(0)
+                elif event.key == K_1:
+                    setting.setAiModelNumber(1)
+                elif event.key == K_2:
+                    setting.setAiModelNumber(2)
+                elif event.key == K_3:
+                    setting.setAiModelNumber(3)
+                elif event.key == K_4:
+                    setting.setAiModelNumber(4)
 
 
-        # Look for MOUSE CLICK events
-        if event.type == MOUSEBUTTONUP:
-            if event.button == LEFT:
-                if not any_mouse_clicked:
-                    show_help = False
-                any_mouse_clicked = True
-                pos = pygame.mouse.get_pos()
-                pointCounter += 1
-                points.append( Point(pos, (255,0,0),pointCounter))
-            elif event.button == RIGHT:
-                pos = pygame.mouse.get_pos()
-                robots.append( Robot(pos, (random.randint(0,255), random.randint(0,255),random.randint(0,255)), 
-                    setting.getAiModelName()) ) 
+            # Look for MOUSE CLICK events
+            if event.type == MOUSEBUTTONUP:
+                if event.button == LEFT:
+                    if not any_mouse_clicked:
+                        show_help = False
+                    any_mouse_clicked = True
+                    pos = pygame.mouse.get_pos()
+                    pointCounter += 1
+                    points.append( Point(pos, (255,0,0),pointCounter))
+                elif event.button == RIGHT:
+                    pos = pygame.mouse.get_pos()
+                    robots.append( Robot(pos, (random.randint(0,255), random.randint(0,255),random.randint(0,255)), 
+                        setting.getAiModelName()) ) 
 
-    screen.fill(BACKGROUND) # background color
+        screen.fill(BACKGROUND) # background color
 
-    if not len(points)==0:
-        for p in points:
-            p.update()
+        if not len(points)==0:
+            for p in points:
+                p.update()
+            for r in robots:
+                r.update(points)
+            for p in points:
+                p.render(screen)
+
         for r in robots:
-            r.update(points)
-        for p in points:
-            p.render(screen)
+            r.render(screen)
 
+        if show_help :
+            ypos = 10
+            for t in text:
+                text_rect = t.get_rect()
+                text_rect.topleft = (10,ypos)
+                screen.blit(t, text_rect)
+                ypos += 25
+        
+        pygame.display.update() # rendering the frame
+        clock.tick(FPS) # limiting the frames per second
+
+def show_stats():
     for r in robots:
-        r.render(screen)
+        print( "Model: {}  score: {}  fuel: {}\n".format(r.aimodel,r.score,r.fuel))
 
-    if show_help :
-        ypos = 10
-        for t in text:
-            text_rect = t.get_rect()
-            text_rect.topleft = (10,ypos)
-            screen.blit(t, text_rect)
-            ypos += 25
-    
-    pygame.display.update() # rendering the frame
-    clock.tick(FPS) # limiting the frames per second
+if __name__ == "__main__":
+    main()
 
