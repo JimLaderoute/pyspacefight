@@ -1,3 +1,8 @@
+12/29/2020 - Sam added NN.txt Neural Net based AI model.
+
+    NN.txt
+    config-feedforward_4000.txt
+    NNAIMODEL_4000.pickle
 
 To Do:
 

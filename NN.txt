@@ -1,0 +1,17 @@
+    def ai5NN(self, points):
+        pickle_in = open("NNAIMODEL_4000.pickle", "rb")
+        genome = pickle.load(pickle_in)
+        local_dir = os.path.dirname(__file__)
+        config_path = os.path.join(local_dir, "config-feedforward_4000.txt")
+        config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                    neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                    config_path)
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+
+        outputs = net.activate((self.center.x, self.center.y, self.velocity.x, self.velocity.y,
+                                    points[self.waypoint].center.x, points[self.waypoint].center.y,
+                                    points[self.waypoint].velocity.x, points[self.waypoint].velocity.y))
+        print("accX: ", outputs[0], "\naxxY: ", outputs[1])
+
+        self.accel.x = outputs[0]/5.0
+        self.accel.y = outputs[1]/5.0

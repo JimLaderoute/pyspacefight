@@ -1,4 +1,5 @@
-import pygame,sys,math,random # importing modules
+import pygame,os,sys,math,random # importing modules
+import pickle, neat
 from pygame.locals import *  # pygame.locals.QUIT --> QUIT
 vec = pygame.math.Vector2
 
@@ -50,6 +51,24 @@ class Robot():
         self.timepass=0
         self.score = 0      # how many targets it touched
         self.fuel = FUEL_UNITS_DEFAULT
+
+    # Neural Network AI Model
+    def ai5(self, points):
+        # Created by Sam
+        pickle_in = open("NNAIMODEL_4000.pickle", "rb")
+        genome = pickle.load(pickle_in)
+        local_dir = os.path.dirname(__file__)
+        config_path = os.path.join(local_dir, "config-feedforward_4000.txt")
+        config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                    neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                    config_path)
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+
+        outputs = net.activate((self.center.x, self.center.y, self.velocity.x, self.velocity.y,
+                                    points[self.waypoint].center.x, points[self.waypoint].center.y,
+                                    points[self.waypoint].velocity.x, points[self.waypoint].velocity.y))
+        self.accel.x = outputs[0]/5.0
+        self.accel.y = outputs[1]/5.0
 
     def ai4(self, points):
         # Created by Sam
@@ -261,6 +280,9 @@ class Robot():
             self.ai3(points)
         elif self.aimodel == "ai4":
             self.ai4(points)
+        elif self.aimodel == "ai5":
+            self.ai5(points)
+
 
         if self.fuel <= 0:
             self.accel.x = 0
@@ -290,7 +312,7 @@ class Robot():
         screen.blit(txtsurf,txtrect)
 
         pygame.draw.rect(surface, (255,0,0), pygame.Rect(int(pos[0] - 20), int(pos[1] + 20), 100, 5))
-        pygame.draw.line(surface, (0,255,0), (int(pos[0] - 20), int(pos[1] + 22)), (int(pos[0] - 20) + (100*self.fuel//FUEL_UNITS_DEFAULT), int(pos[1] + 22)))
+        pygame.draw.line(surface, (0,255,0), (int(pos[0] - 20), int(pos[1] + 22)), (int(pos[0] - 20) + int(100*self.fuel//FUEL_UNITS_DEFAULT), int(pos[1] + 22)))
 
 
 class Point():
@@ -357,6 +379,9 @@ text_surface = font.render("Press 3 to set AI model to AI3.", True, (255,0,0))
 text.append(text_surface)
 text_surface = font.render("Press 4 to set AI model to AI4.", True, (255,0,0))
 text.append(text_surface)
+text_surface = font.render("Press 5 to set AI model to AI5.", True, (255,0,0))
+text.append(text_surface)
+
 
 def main():
     global points
@@ -394,6 +419,9 @@ def main():
                     setting.setAiModelNumber(3)
                 elif event.key == K_4:
                     setting.setAiModelNumber(4)
+                elif event.key == K_5:
+                    setting.setAiModelNumber(5)
+
 
 
             # Look for MOUSE CLICK events
