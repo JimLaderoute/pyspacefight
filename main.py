@@ -13,7 +13,7 @@ FPS = 60
 LEFT = 1
 RIGHT = 3
 MIDDLE = 2
-
+SHOW_INFO = True
 WAYPOINT_TIME = 800
 MAX_VEL = 8
 MIN_DISTANCE = 30
@@ -55,7 +55,8 @@ class Robot():
     # Neural Network AI Model
     def ai5(self, points):
         # Created by Sam
-        pickle_in = open("NNAIMODEL_4000.pickle", "rb")
+        #pickle_in = open("NNAIMODEL_4000.pickle", "rb")
+        pickle_in = open("NNAIMODEL.pickle", "rb")
         genome = pickle.load(pickle_in)
         local_dir = os.path.dirname(__file__)
         config_path = os.path.join(local_dir, "config-feedforward_4000.txt")
@@ -302,14 +303,15 @@ class Robot():
         pygame.draw.line(surface, self.color, pos, (pos[0]-int(300*self.accel.x), pos[1]))
         pygame.draw.line(surface, self.color, pos, (pos[0], pos[1]-int(300*self.accel.y)))
         pygame.draw.circle(surface, self.color, pos, self.radius)
-        txtsurf = font.render(str(self.score), True, (0,0,0))
-        txtrect = txtsurf.get_rect()
-        txtrect.bottomleft= pos
-        screen.blit(txtsurf,txtrect)
-        txtsurf = font.render(self.aimodel, True, (0,0,0))
-        txtrect = txtsurf.get_rect()
-        txtrect.topright= pos
-        screen.blit(txtsurf,txtrect)
+        if SHOW_INFO:
+            txtsurf = font.render(str(self.score), True, (0,0,0))
+            txtrect = txtsurf.get_rect()
+            txtrect.bottomleft= pos
+            screen.blit(txtsurf,txtrect)
+            txtsurf = font.render(self.aimodel, True, (0,0,0))
+            txtrect = txtsurf.get_rect()
+            txtrect.topright= pos
+            screen.blit(txtsurf,txtrect)
 
         pygame.draw.rect(surface, (255,0,0), pygame.Rect(int(pos[0] - 20), int(pos[1] + 20), 100, 5))
         pygame.draw.line(surface, (0,255,0), (int(pos[0] - 20), int(pos[1] + 22)), (int(pos[0] - 20) + int(100*self.fuel//FUEL_UNITS_DEFAULT), int(pos[1] + 22)))
@@ -348,10 +350,11 @@ class Point():
                     pygame.draw.circle(surface, r.color, pos, MIN_DISTANCE)
 
         pygame.draw.circle(surface, self.color, pos, self.radius)
-        txtsurf = font.render(str(self.count), True, (0,0,0))
-        txtrect = txtsurf.get_rect()
-        txtrect.center = pos
-        screen.blit(txtsurf,txtrect)
+        if SHOW_INFO:
+            txtsurf = font.render(str(self.count), True, (0,0,0))
+            txtrect = txtsurf.get_rect()
+            txtrect.center = pos
+            screen.blit(txtsurf,txtrect)
 
 pygame.init() # initiating pygame
 screen = pygame.display.set_mode((WIDTH,HEIGHT)) # creating the display surface
@@ -369,6 +372,8 @@ text_surface = font.render("Click Right Mouse Button to create a Robot", True, (
 text.append(text_surface)
 text_surface = font.render("Press R to toggle random vel of waypoints.", True, (255,0,0))
 text.append(text_surface)
+text_surface = font.render("Press I to display INFO text.", True, (255,0,0))
+text.append(text_surface)
 text_surface = font.render("Press 0 to set AI model to AI0.", True, (255,0,0))
 text.append(text_surface)
 text_surface = font.render("Press 1 to set AI model to AI1.", True, (255,0,0))
@@ -385,6 +390,7 @@ text.append(text_surface)
 
 def main():
     global points
+    global SHOW_INFO
 
     any_mouse_clicked = False
     show_help = True
@@ -409,6 +415,8 @@ def main():
                     show_help = not show_help
                 elif event.key == K_r:
                     setting.toggleRandom()
+                elif event.key == K_i:
+                    SHOW_INFO = not SHOW_INFO
                 elif event.key == K_0:
                     setting.setAiModelNumber(0)
                 elif event.key == K_1:
@@ -421,8 +429,6 @@ def main():
                     setting.setAiModelNumber(4)
                 elif event.key == K_5:
                     setting.setAiModelNumber(5)
-
-
 
             # Look for MOUSE CLICK events
             if event.type == MOUSEBUTTONUP:

@@ -4,6 +4,10 @@
     config-feedforward_4000.txt
     NNAIMODEL_4000.pickle
 
+12/29/2020 - Added "i" key stroke to toggle TEXT info on screen
+
+    Sam supplied another model. I've changed AI5 to the new model.
+
 To Do:
 
 o avoid colliding with non-active waypoints
